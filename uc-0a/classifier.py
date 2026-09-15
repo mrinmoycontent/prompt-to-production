@@ -44,14 +44,14 @@ CATEGORY_TERMS = {
         "pothole",
     ],
     "Flooding": [
-        "flood",
+        "flood", "floods",
         "flooded",
         "flooding",
         "waterlogged",
         "water logging",
     ],
     "Streetlight": [
-        "streetlight",
+        "streetlight", "streetlights",
         "street light",
         "lights out",
         "light out",
@@ -351,4 +351,3 @@ if __name__ == "__main__":
     )
 
     print(f"Done. Results written to {args.output}")
-```
