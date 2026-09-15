@@ -1,4 +1,3 @@
-```python
 """
 UC-0A — Complaint Classifier
 Rule-based implementation guided by agents.md and skills.md.
