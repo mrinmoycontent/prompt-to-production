@@ -22,7 +22,11 @@ ALLOWED_CATEGORIES = [
     "Other",
 ]
 
-ALLOWED_PRIORITIES = ["Urgent", "Standard", "Low"]
+ALLOWED_PRIORITIES = [
+    "Urgent",
+    "Standard",
+    "Low",
+]
 
 SEVERITY_KEYWORDS = [
     "injury",
@@ -99,7 +103,7 @@ CATEGORY_TERMS = {
 }
 
 
-def _contains_keyword(text: str, keyword: str) -> bool:
+def _contains_keyword(text, keyword):
     """Case-insensitive whole-word match."""
     return re.search(
         rf"\b{re.escape(keyword)}\b",
@@ -108,7 +112,7 @@ def _contains_keyword(text: str, keyword: str) -> bool:
     ) is not None
 
 
-def _find_severity_keyword(text: str):
+def _find_severity_keyword(text):
     """Return the first severity keyword found."""
     for keyword in SEVERITY_KEYWORDS:
         if _contains_keyword(text, keyword):
@@ -116,7 +120,7 @@ def _find_severity_keyword(text: str):
     return None
 
 
-def _find_category_matches(description: str):
+def _find_category_matches(description):
     """Return categories and evidence phrases supported by the description."""
     matches = []
 
@@ -129,35 +133,38 @@ def _find_category_matches(description: str):
     return matches
 
 
-def _classify_category(description: str):
+def _classify_category(description):
     """
     Determine the best-supported category.
 
     Returns:
         category, evidence_phrase, ambiguous
     """
+
     matches = _find_category_matches(description)
 
     if not matches:
         return "Other", None, False
 
-    # Flooding takes precedence over a separate drain mention when
-    # the complaint explicitly describes an active flooding problem.
     categories = [item[0] for item in matches]
 
+    # If flooding and a blocked drain are both mentioned,
+    # classify the primary reported problem as Flooding.
     if "Flooding" in categories and "Drain Blockage" in categories:
         matches = [
-            item for item in matches
+            item
+            for item in matches
             if item[0] != "Drain Blockage"
         ]
 
-    # A streetlight complaint in a heritage/old-city area remains
-    # a Streetlight issue unless the heritage structure itself is damaged.
     categories = [item[0] for item in matches]
 
+    # A streetlight problem in a heritage/old-city area is
+    # still primarily a Streetlight complaint.
     if "Streetlight" in categories and "Heritage Damage" in categories:
         matches = [
-            item for item in matches
+            item
+            for item in matches
             if item[0] != "Heritage Damage"
         ]
 
@@ -168,23 +175,20 @@ def _classify_category(description: str):
     return category, evidence_phrase, ambiguous
 
 
-def _make_reason(
-    category: str,
-    evidence_phrase: str | None,
-    severity_keyword: str | None,
-) -> str:
+def _make_reason(category, evidence_phrase, severity_keyword):
     """Create exactly one evidence-based sentence."""
 
     if category == "Other":
+
         if severity_keyword:
             return (
-                f'The description does not support an allowed specific category, '
-                f'but contains "{severity_keyword}", so it requires urgent review.'
+                'The description does not support an allowed specific '
+                f'category but contains "{severity_keyword}", requiring urgent review.'
             )
 
         return (
-            "The description does not contain evidence supporting any specific "
-            "allowed category, so it is classified as Other."
+            "The description does not contain evidence supporting any "
+            "specific allowed category, so it is classified as Other."
         )
 
     if severity_keyword:
@@ -194,12 +198,12 @@ def _make_reason(
         )
 
     return (
-        f'The description contains "{evidence_phrase}" supporting the '
-        f'{category} category.'
+        f'The description contains "{evidence_phrase}" supporting '
+        f'the {category} category.'
     )
 
 
-def classify_complaint(row: dict) -> dict:
+def classify_complaint(row):
     """
     Classify a single complaint row.
 
@@ -210,7 +214,7 @@ def classify_complaint(row: dict) -> dict:
     complaint_id = (row.get("complaint_id") or "").strip()
     description = (row.get("description") or "").strip()
 
-    # Handle missing descriptions safely.
+    # Missing description: preserve the row and flag it.
     if not description:
         return {
             "complaint_id": complaint_id,
@@ -226,7 +230,7 @@ def classify_complaint(row: dict) -> dict:
 
     severity_keyword = _find_severity_keyword(description)
 
-    # Severity keyword always overrides normal priority.
+    # Any severity keyword makes the complaint Urgent.
     if severity_keyword:
         priority = "Urgent"
     else:
@@ -240,7 +244,7 @@ def classify_complaint(row: dict) -> dict:
 
     flag = "NEEDS_REVIEW" if ambiguous else ""
 
-    # Final schema enforcement.
+    # Final schema validation.
     if category not in ALLOWED_CATEGORIES:
         category = "Other"
         flag = "NEEDS_REVIEW"
@@ -257,7 +261,7 @@ def classify_complaint(row: dict) -> dict:
     }
 
 
-def batch_classify(input_path: str, output_path: str):
+def batch_classify(input_path, output_path):
     """
     Read input CSV, classify every row, and write results CSV.
 
@@ -279,6 +283,7 @@ def batch_classify(input_path: str, output_path: str):
             raise ValueError("Input CSV has no header row.")
 
         for row in reader:
+
             try:
                 result = classify_complaint(row)
 
@@ -322,6 +327,7 @@ def batch_classify(input_path: str, output_path: str):
 
 
 if __name__ == "__main__":
+
     parser = argparse.ArgumentParser(
         description="UC-0A Complaint Classifier"
     )
